@@ -9,19 +9,19 @@
 #include <errno.h>
 #include <string.h>
 
-#define SHM_KEY 0x1234
 #define PERMS 0644  
 
 struct mesg_buffer{
     long mesg_type;
     char mesg_text[100];
 };
+
 int main(int argc,char const *argv[]){
 
     key_t msg_key;
     key_t shm_key;
-    int len;
     int msgid;
+
     if((msg_key=ftok("load_balancer.c",'B'))==-1){
         perror("ftok failed");
         exit(1);
@@ -30,15 +30,11 @@ int main(int argc,char const *argv[]){
         perror("msgget failed");
         exit(1);
     }
-
     char menu_options[] = "1. Add a new graph to the database\n2. Modify an existing graph of the database\n3. Perform DFS on an existing graph of the database\n4. Perform BFS on an existing graph of the database\n\n";
     
     int sequence_num;
     int operation_num;
     char graph_fn[100];
-
-    int nodes;
-    int **adj_matrix;
 
     printf("%s", menu_options);
 
@@ -49,9 +45,10 @@ int main(int argc,char const *argv[]){
     while(1){
         struct mesg_buffer buf; 
         struct mesg_buffer buf2;
+        int nodes;
         printf("%s", prompt);
-        scanf("%d %d", &sequence_num, &operation_num);
-        fgets(graph_fn, 100, stdin);    //Error with this line, replace it with anything taking char*[100] as string input
+        scanf("%d %d %[^\n]s", &sequence_num, &operation_num, graph_fn);
+        int shm_arg = sequence_num + 48;
         switch(operation_num){
             case 1:
             case 2:
@@ -59,6 +56,19 @@ int main(int argc,char const *argv[]){
                 strcpy(buf.mesg_text, graph_fn);
                 printf("%s", write_prompt);
                 scanf("%d", &nodes);
+                int** adj_matrix = (int**)malloc(nodes * sizeof(int*));
+                if(adj_matrix == NULL){
+                    perror("malloc failed");
+                    exit(1);
+                }
+
+                for(int i = 0; i < nodes; i++){
+                    adj_matrix[i] = (int*)malloc(nodes * sizeof(int));
+                    if(adj_matrix[i] == NULL){
+                        perror("malloc failed");
+                        exit(1);
+                    }
+                }
                 for(int i = 0; i < nodes; i++){
                     for(int j = 0; j < nodes; j++){
                         scanf("%d", &adj_matrix[i][j]);
@@ -94,19 +104,19 @@ int main(int argc,char const *argv[]){
                     perror("shmdt failed");
                     return 1;
                 }
-                if(shmctl(shmid,IPC_RMID,0)==-1){
-                    perror("shmctl failed");
-                    return 1;
-                }
-                if(msgsnd(msgid,&buf,strlen(buf.mesg_text)+1,0)==-1){
-                        perror("msgsnd error");
-                        exit(1);
+                if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
+                    perror("msgsnd error");
+                    exit(1);
                 }
                 if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
                     perror("msgrcv error");
                     exit(1);
                 }
                 printf("%s", buf2.mesg_text);
+                if(shmctl(shmid,IPC_RMID,0)==-1){
+                    perror("shmctl failed");
+                    return 1;
+                }
             break;
         }
     }
