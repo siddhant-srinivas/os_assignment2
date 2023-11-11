@@ -13,6 +13,7 @@
 
 struct mesg_buffer{
     long mesg_type;
+    long seq_num;
     char mesg_text[100];
 };
 
@@ -22,19 +23,20 @@ int main(int argc,char const *argv[]){
     key_t shm_key;
     int msgid;
 
-    if((msg_key=ftok("load_balancer.c",'B'))==-1){
+    if((msg_key=ftok("load_balancer.c",'B'))==-1){         //message queue
         perror("ftok failed");
         exit(1);
     }
-    if((msgid= msgget(msg_key,PERMS))==-1){
+    if((msgid= msgget(msg_key,PERMS))==-1){                //message queue
         perror("msgget failed");
         exit(1);
     }
-    char menu_options[] = "1. Add a new graph to the database\n2. Modify an existing graph of the database\n3. Perform DFS on an existing graph of the database\n4. Perform BFS on an existing graph of the database\n\n";
     
     int sequence_num;
     int operation_num;
     char graph_fn[100];
+    
+    char menu_options[] = "1. Add a new graph to the database\n2. Modify an existing graph of the database\n3. Perform DFS on an existing graph of the database\n4. Perform BFS on an existing graph of the database\n\n";
 
     printf("%s", menu_options);
 
@@ -42,10 +44,12 @@ int main(int argc,char const *argv[]){
     char write_prompt[] = "Enter number of nodes of the graph\nEnter adjacency matrix, each row on a separate line and elements of a single row separated by whitespace characters\n\n";
     char read_prompt[] = "Enter starting vertex\n\n";
 
-    while(1){
+    while(1)
+    {
         struct mesg_buffer buf; 
         struct mesg_buffer buf2;
         int nodes;
+        int starting_vertex;
         printf("%s", prompt);
         scanf("%d %d %[^\n]s", &sequence_num, &operation_num, graph_fn);
         int shm_arg = sequence_num + 48;
@@ -117,7 +121,52 @@ int main(int argc,char const *argv[]){
                     perror("shmctl failed");
                     return 1;
                 }
-            break;
+            	break;
+            
+            case 3:
+            	buf.mesg_type = operation_num;
+            	buf.seq_num = sequence_num;
+                strcpy(buf.mesg_text, graph_fn);
+                printf("%s", read_prompt);
+                scanf("%d", &starting_vertex);
+                
+                
+                if((shm_key=ftok("client.c",'D'))== -1){
+                    perror("ftok failed");
+                    exit(1);
+                }
+                int shmid;
+                int BUF_SIZE = sizeof(int) * 900;
+                shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
+                if(shmid == -1){
+                    perror("SHM error");
+                    return 1;
+                }
+                int *shmptr = (int *)shmat(shmid, NULL, 0);
+                if(shmptr == (int*)-1){
+                    perror("SHMPTR ERROR");
+                    return 1;
+                }
+                *shmptr = starting_vertex;
+                
+                if(shmdt(shmptr) == -1){
+                    perror("shmdt failed");
+                    return 1;
+                }
+                if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
+                    perror("msgsnd error");
+                    exit(1);
+                }
+                if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
+                    perror("msgrcv error");
+                    exit(1);
+                }
+                printf("%s", buf2.mesg_text);
+                if(shmctl(shmid,IPC_RMID,0)==-1){
+                    perror("shmctl failed");
+                    return 1;
+                }
+            	break;
         }
     }
 
