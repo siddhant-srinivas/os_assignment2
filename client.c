@@ -53,120 +53,121 @@ int main(int argc,char const *argv[]){
         printf("%s", prompt);
         scanf("%d %d %[^\n]s", &sequence_num, &operation_num, graph_fn);
         int shm_arg = sequence_num + 48;
+        
+        int shmid;
+	int BUF_SIZE = sizeof(int) * 900;
+	int *shmptr;
+        
         switch(operation_num){
             case 1:
-            case 2:
-                buf.mesg_type = operation_num;
-                strcpy(buf.mesg_text, graph_fn);
-                printf("%s", write_prompt);
-                scanf("%d", &nodes);
-                int** adj_matrix = (int**)malloc(nodes * sizeof(int*));
-                if(adj_matrix == NULL){
-                    perror("malloc failed");
-                    exit(1);
-                }
+            case 2:	buf.mesg_type = operation_num;
+		        strcpy(buf.mesg_text, graph_fn);
+		        printf("%s", write_prompt);
+		        scanf("%d", &nodes);
+		        int** adj_matrix = (int**)malloc(nodes * sizeof(int*));
+		        if(adj_matrix == NULL){
+		            perror("malloc failed");
+		            exit(1);
+		        }
 
-                for(int i = 0; i < nodes; i++){
-                    adj_matrix[i] = (int*)malloc(nodes * sizeof(int));
-                    if(adj_matrix[i] == NULL){
-                        perror("malloc failed");
-                        exit(1);
-                    }
-                }
-                for(int i = 0; i < nodes; i++){
-                    for(int j = 0; j < nodes; j++){
-                        scanf("%d", &adj_matrix[i][j]);
-                    }
-                }
+		        for(int i = 0; i < nodes; i++){
+		            adj_matrix[i] = (int*)malloc(nodes * sizeof(int));
+		            if(adj_matrix[i] == NULL){
+		                perror("malloc failed");
+		                exit(1);
+		            }
+		        }
+		        for(int i = 0; i < nodes; i++){
+		            for(int j = 0; j < nodes; j++){
+		                scanf("%d", &adj_matrix[i][j]);
+		            }
+		        }
 
-                //Creating shared memory segment
-                if((shm_key=ftok("client.c",'D'))== -1){
-                    perror("ftok failed");
-                    exit(1);
-                }
-                int shmid;
-                int BUF_SIZE = sizeof(int) * 900;
-                shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
-                if(shmid == -1){
-                    perror("SHM error");
-                    return 1;
-                }
-                int *shmptr = (int *)shmat(shmid, NULL, 0);
-                if(shmptr == (int*)-1){
-                    perror("SHMPTR ERROR");
-                    return 1;
-                }
-                *shmptr = nodes;
-                int *ptr = shmptr + 1;  //Adjacency matrix values
-                for(int i = 0; i < nodes; i++){
-                    for(int j = 0; j < nodes; j++){
-                        *(ptr) = adj_matrix[i][j];
-                        ptr++;
-                    }
-                }
-                if(shmdt(shmptr) == -1){
-                    perror("shmdt failed");
-                    return 1;
-                }
-                if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
-                    perror("msgsnd error");
-                    exit(1);
-                }
-                if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
-                    perror("msgrcv error");
-                    exit(1);
-                }
-                printf("%s", buf2.mesg_text);
-                if(shmctl(shmid,IPC_RMID,0)==-1){
-                    perror("shmctl failed");
-                    return 1;
-                }
-            	break;
+		        //Creating shared memory segment
+		        if((shm_key=ftok("client.c",'D'))== -1){
+		            perror("ftok failed");
+		            exit(1);
+		        }
+		        
+		        shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
+		        if(shmid == -1){
+		            perror("SHM error");
+		            return 1;
+		        }
+		        shmptr = (int *)shmat(shmid, NULL, 0);
+		        if(shmptr == (int*)-1){
+		            perror("SHMPTR ERROR");
+		            return 1;
+		        }
+		        *shmptr = nodes;
+		        int *ptr = shmptr + 1;  //Adjacency matrix values
+		        for(int i = 0; i < nodes; i++){
+		            for(int j = 0; j < nodes; j++){
+		                *(ptr) = adj_matrix[i][j];
+		                ptr++;
+		            }
+		        }
+		        if(shmdt(shmptr) == -1){
+		            perror("shmdt failed");
+		            return 1;
+		        }
+		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
+		            perror("msgsnd error");
+		            exit(1);
+		        }
+		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
+		            perror("msgrcv error");
+		            exit(1);
+		        }
+		        printf("%s", buf2.mesg_text);
+		        if(shmctl(shmid,IPC_RMID,0)==-1){
+		            perror("shmctl failed");
+		            return 1;
+		        }
+		    	break;
             
-            case 3:
-            	buf.mesg_type = operation_num;
-            	buf.seq_num = sequence_num;
-                strcpy(buf.mesg_text, graph_fn);
-                printf("%s", read_prompt);
-                scanf("%d", &starting_vertex);
-                
-                
-                if((shm_key=ftok("client.c",'D'))== -1){
-                    perror("ftok failed");
-                    exit(1);
-                }
-                int shmid;
-                int BUF_SIZE = sizeof(int) * 900;
-                shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
-                if(shmid == -1){
-                    perror("SHM error");
-                    return 1;
-                }
-                int *shmptr = (int *)shmat(shmid, NULL, 0);
-                if(shmptr == (int*)-1){
-                    perror("SHMPTR ERROR");
-                    return 1;
-                }
-                *shmptr = starting_vertex;
-                
-                if(shmdt(shmptr) == -1){
-                    perror("shmdt failed");
-                    return 1;
-                }
-                if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
-                    perror("msgsnd error");
-                    exit(1);
-                }
-                if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
-                    perror("msgrcv error");
-                    exit(1);
-                }
-                printf("%s", buf2.mesg_text);
-                if(shmctl(shmid,IPC_RMID,0)==-1){
-                    perror("shmctl failed");
-                    return 1;
-                }
-            	break;
+            case 3:	buf.mesg_type = operation_num;
+		    	buf.seq_num = sequence_num;
+		        strcpy(buf.mesg_text, graph_fn);
+		        printf("%s", read_prompt);
+		        scanf("%d", &starting_vertex);
+		        
+		        
+		        if((shm_key=ftok("client.c",'D'))== -1){
+		            perror("ftok failed");
+		            exit(1);
+		        }
+		        
+		        shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
+		        if(shmid == -1){
+		            perror("SHM error");
+		            return 1;
+		        }
+		        shmptr = (int *)shmat(shmid, NULL, 0);
+		        if(shmptr == (int*)-1){
+		            perror("SHMPTR ERROR");
+		            return 1;
+		        }
+		        *shmptr = starting_vertex;
+		        
+		        if(shmdt(shmptr) == -1){
+		            perror("shmdt failed");
+		            return 1;
+		        }
+		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
+		            perror("msgsnd error");
+		            exit(1);
+		        }
+		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
+		            perror("msgrcv error");
+		            exit(1);
+		        }
+		        printf("%s", buf2.mesg_text);
+		        if(shmctl(shmid,IPC_RMID,0)==-1){
+		            perror("shmctl failed");
+		            return 1;
+		        }
+		    	break;
         }
     }
 
