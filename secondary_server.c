@@ -16,7 +16,14 @@ struct mesg_buffer{
     long mesg_type;
     char mesg_text[100];
 };
+void* depth_first_search(void* arg){
+    
+}
 int main(int argc,char const *argv[]){
+    //Handling server numbers
+    int server_num = atoi(argv[1]);
+    server_num %= 2;
+    if(server_num%2 ==0) server_num +=2;
 
     struct mesg_buffer buf;
     key_t key;

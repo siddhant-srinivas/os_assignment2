@@ -43,7 +43,8 @@ int main(int argc, char* argv[]){
                         perror("msgsnd");
                         exit(1);
                 }
-                 
+            case 10:
+               break;
         }
 
     }
