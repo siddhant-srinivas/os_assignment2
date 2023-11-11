@@ -17,7 +17,6 @@ struct mesg_buffer{
 int main(int argc, char* argv[]){
 
     struct mesg_buffer buf;
-    int i;
     key_t key;
     int len;
     int msgid;
@@ -32,10 +31,10 @@ int main(int argc, char* argv[]){
 
     while(1){
         if(msgrcv(msgid,&buf,sizeof(buf.mesg_text),0,0)==-1){
-            printf("%s", buf.mesg_text);
             perror("msgrcv");
             exit(1);
         }
+        printf("%s", buf.mesg_text);
         switch(buf.mesg_type){
             case 1:
             case 2:
@@ -43,7 +42,6 @@ int main(int argc, char* argv[]){
                         perror("msgsnd");
                         exit(1);
                 }
-            case 10:
                break;
         }
 
