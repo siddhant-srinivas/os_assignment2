@@ -49,15 +49,15 @@ void* dfs(struct dfsStruct* dfsReqs)
             pthread_t tid;
 	    pthread_attr_t attr;
 	    pthread_attr_init(&attr);
-	    if(pthread_create(&tid, &attr, dfs, threadArgs) != 0)  //creating a new thread for the unvisited node
+	    if(pthread_create(&tid, &attr, dfs, dfsReqsChild) != 0)  //creating a new thread for the unvisited node
 	    {
 	    	perror("pthread create failed");
-		return 1;
+		pthread_exit(NULL);
 	    }
             if(pthread_join(tid, NULL) != 0)
 	    {
 		perror("join error");
-	    	return 1;
+	    	pthread_exit(NULL);
 	    }
         }
     }
@@ -78,12 +78,12 @@ void startDFS(struct dfsStruct* dfsReqs)
     if(pthread_create(&tid, &attr, dfs, dfsReqs) != 0)  //creating a new thread to service this request
     {
     	perror("pthread create failed");
-        return 1;
+        pthread_exit(NULL);
     }
     if(pthread_join(tid, NULL) != 0)
     {
         perror("join error");
-    	return 1;
+    	pthread_exit(NULL);
     }
     
     pthread_mutex_destroy(&dfsReqs->mutex);
@@ -176,7 +176,7 @@ int main(int argc,char const *argv[])
 
     while(1)
     {
-        if(msgrcv(msgid,&buf,sizeof(buf.mesg_text),0,0)==-1)
+        if(msgrcv(msgid,&buf,sizeof(buf),0,0)==-1)
         {
             printf("%s", buf.mesg_text);
             perror("msgrcv");
@@ -196,7 +196,7 @@ int main(int argc,char const *argv[])
                 
                 char dfs_rd_done[] = "DFS reading done";
                 strcpy(buf2.mesg_text, dfs_rd_done);
-                if(msgsnd(msgid,&buf2,strlen(buf2.mesg_text)+1,0)==-1)
+                if(msgsnd(msgid,&buf2.mesg_text,strlen(buf2.mesg_text)+1,0)==-1)
                 {
                         perror("msgsnd");
                         exit(1);
