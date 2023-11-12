@@ -111,11 +111,11 @@ int main(int argc,char const *argv[]){
 		            perror("shmdt failed");
 		            return 1;
 		        }
-		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
+		        if(msgsnd(msgid,&buf,sizeof(buf),0)==-1){
 		            perror("msgsnd error");
 		            exit(1);
 		        }
-		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
+		        if(msgrcv(msgid,&buf2,sizeof(buf),0,0)==-1){
 		            perror("msgrcv error");
 		            exit(1);
 		        }
@@ -154,11 +154,11 @@ int main(int argc,char const *argv[]){
 		            perror("shmdt failed");
 		            return 1;
 		        }
-		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_text),0)==-1){
+		        if(msgsnd(msgid,&buf,sizeof(buf),0)==-1){
 		            perror("msgsnd error");
 		            exit(1);
 		        }
-		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_text),0,0)==-1){
+		        if(msgrcv(msgid,&buf2.mesg_text,strlen(buf2.mesg_text)+1,0,0)==-1){
 		            perror("msgrcv error");
 		            exit(1);
 		        }
