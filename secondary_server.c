@@ -14,6 +14,7 @@
 
 struct mesg_buffer{
     long mesg_type;
+    long seq_num;
     char mesg_text[100];
 };
 
