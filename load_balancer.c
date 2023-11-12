@@ -44,6 +44,14 @@ int main(int argc, char* argv[]){
                         exit(1);
                 }
                break;
+               
+            case 3:
+                if(msgsnd(msgid,&buf,sizeof(buf),0)==-1){
+                        perror("msgsnd");
+                        exit(1);
+                }
+               break;
+            	
         }
 
     }
