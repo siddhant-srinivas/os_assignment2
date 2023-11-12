@@ -19,7 +19,8 @@ struct mesg_buffer
     long seq_num;
     char mesg_text[100];
 };
-struct dfsStruct {      //This is the stuff we need in order to do dfs. Using struct because we can pass only 1 arg in thread creation
+struct dfsStruct        //This is the stuff we need in order to do dfs. Using struct because we can pass only 1 arg in thread creation
+{
     int n;
     int starting_vertex;
     int **adjacency_matrix;
@@ -65,7 +66,8 @@ void* dfs(struct dfsStruct* dfsReqs)
 
 
 
-void startDFS(struct dfsStruct* dfsReqs) {
+void startDFS(struct dfsStruct* dfsReqs)
+{
 
     pthread_mutex_init(&dfsReqs->mutex, NULL);                          //initializing the visited and mutex of the struct
     dfsReqs->visited = (int*)calloc(dfsReqs->n, sizeof(int));
