@@ -9,14 +9,18 @@
 #include <string.h>
 #define PERMS 0666
 
+struct mesg_content{
+	long sequence_num;
+	char mesg_text[100];
+}; 
+typedef struct mesg_content mesg_content;
 struct mesg_buffer{
     long mesg_type;
-    long seq_num;
-    char mesg_text[100];
+    // long seq_num;
+    mesg_content mesg_cont;
 };
 
 int main(int argc, char* argv[]){
-
     struct mesg_buffer buf;
     key_t key;
     int len;
@@ -29,24 +33,32 @@ int main(int argc, char* argv[]){
         perror("msgget");
         exit(1);
     }
-
+    printf("Load Balancer running! Message Queue created!\n");
     while(1){
-        if(msgrcv(msgid,&buf,sizeof(buf.mesg_text),0,0)==-1){
+        fflush(stdout);
+        if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),0,0)==-1){
             perror("msgrcv");
             exit(1);
         }
-        printf("%s", buf.mesg_text);
+        printf("Received Message!\n");
+        printf("Sequence Number: %ld\n",buf.mesg_cont.sequence_num);
+        printf("Contents: %s\n", buf.mesg_cont.mesg_text);
         switch(buf.mesg_type){
             case 1:
             case 2:
-                if(msgsnd(msgid,&buf,strlen(buf.mesg_text)+1,0)==-1){
+                struct mesg_buffer buf2;
+                buf2.mesg_type = buf.mesg_type;
+                char msg[100] = "Load balancer received: ";
+                strcat(msg, buf.mesg_cont.mesg_text);
+                strcpy(buf2.mesg_cont.mesg_text, msg);
+                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
                         perror("msgsnd");
                         exit(1);
                 }
                break;
                
             case 3:
-                if(msgsnd(msgid,&buf,sizeof(buf),0)==-1){
+                if(msgsnd(msgid,&buf,sizeof(buf.mesg_cont),0)==-1){
                         perror("msgsnd");
                         exit(1);
                 }
