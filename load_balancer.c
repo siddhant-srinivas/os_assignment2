@@ -48,9 +48,8 @@ int main(int argc, char* argv[]){
             case 2:
                 struct mesg_buffer buf2;
                 buf2.mesg_type = buf.mesg_type;
-                char msg[100] = "Load balancer received: ";
-                strcat(msg, buf.mesg_cont.mesg_text);
-                strcpy(buf2.mesg_cont.mesg_text, msg);
+                buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
+                strcpy(buf2.mesg_cont.mesg_text, buf.mesg_cont.mesg_text);
                 if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
                         perror("msgsnd");
                         exit(1);
