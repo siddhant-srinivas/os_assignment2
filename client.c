@@ -114,13 +114,15 @@ int main(int argc,char const *argv[]){
 		            return 1;
 		        }
 		        *shmptr = nodes;
-		        int *ptr = shmptr + 1;  //Adjacency matrix values
+		        int *ptr = shmptr;  //Adjacency matrix values
+				shmptr++;
 		        for(int i = 0; i < nodes; i++){
 		            for(int j = 0; j < nodes; j++){
-		                *(ptr) = adj_matrix[i][j];
-		                ptr++;
+		                *(shmptr) = adj_matrix[i][j];
+		                shmptr++;
 		            }
 		        }
+				shmptr = ptr;
 		        if(shmdt(shmptr) == -1){
 		            perror("shmdt failed");
 		            return 1;

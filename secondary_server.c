@@ -29,8 +29,9 @@ struct dfsStruct        //This is the stuff we need in order to do dfs. Using st
 };
 
 
-void* dfs(struct dfsStruct* dfsReqs)
+void* dfs(void* args)
 {   
+    struct dfsStruct* dfsReqs = (struct dfsStruct*)args;
     int currentNode = dfsReqs->starting_vertex - 1; //-1 becasue array indexing starts from 0
     
     pthread_mutex_lock(&dfsReqs->mutex);   //locking mutex (visited array is the critical section)
