@@ -11,10 +11,15 @@
 
 #define PERMS 0644  
 
+struct mesg_content{
+	long sequence_num;
+	char mesg_text[100];
+}; 
+typedef struct mesg_content mesg_content;
 struct mesg_buffer{
     long mesg_type;
-    long seq_num;
-    char mesg_text[100];
+    // long seq_num;
+    mesg_content mesg_cont;
 };
 
 int main(int argc,char const *argv[]){
@@ -38,7 +43,7 @@ int main(int argc,char const *argv[]){
     
     char menu_options[] = "1. Add a new graph to the database\n2. Modify an existing graph of the database\n3. Perform DFS on an existing graph of the database\n4. Perform BFS on an existing graph of the database\n\n";
 
-    printf("%s", menu_options);
+    
 
     char prompt[] = "Enter Sequence number\nEnter Operation Number\nEnter graph file name\n\n";
     char write_prompt[] = "Enter number of nodes of the graph\nEnter adjacency matrix, each row on a separate line and elements of a single row separated by whitespace characters\n\n";
@@ -50,8 +55,15 @@ int main(int argc,char const *argv[]){
         struct mesg_buffer buf2;
         int nodes;
         int starting_vertex;
-        printf("%s", prompt);
-        scanf("%d %d %[^\n]s", &sequence_num, &operation_num, graph_fn);
+		printf("%s", menu_options);
+       printf("Enter Sequence Number: ");
+		scanf("%d", &sequence_num);
+		printf("Enter Operation Number: ");
+		scanf("%d",&operation_num);
+		fflush(stdout);
+		printf("Enter Graph File Name: ");
+		scanf("%s[^\n]",graph_fn);
+		printf("%d, %d, %s\n",sequence_num,operation_num,graph_fn);
         int shm_arg = sequence_num + 48;
         
         int shmid;
@@ -61,9 +73,11 @@ int main(int argc,char const *argv[]){
         switch(operation_num){
             case 1:
             case 2:	buf.mesg_type = operation_num;
-		        strcpy(buf.mesg_text, graph_fn);
-		        printf("%s", write_prompt);
+			buf.mesg_cont.sequence_num = sequence_num;
+		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
+		        printf("Enter the number of nodes of the graph: ");
 		        scanf("%d", &nodes);
+				printf("Enter adjacency matrix, each row on  a seperate line and elements of a single separated by whitespace character:\n");
 		        int** adj_matrix = (int**)malloc(nodes * sizeof(int*));
 		        if(adj_matrix == NULL){
 		            perror("malloc failed");
@@ -111,15 +125,15 @@ int main(int argc,char const *argv[]){
 		            perror("shmdt failed");
 		            return 1;
 		        }
-		        if(msgsnd(msgid,&buf,sizeof(buf),0)==-1){
+		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_cont),0)==-1){
 		            perror("msgsnd error");
 		            exit(1);
 		        }
-		        if(msgrcv(msgid,&buf2,sizeof(buf),0,0)==-1){
+		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_cont),0,0)==-1){
 		            perror("msgrcv error");
 		            exit(1);
 		        }
-		        printf("%s", buf2.mesg_text);
+		        printf("%s\n", buf2.mesg_cont.mesg_text);
 		        if(shmctl(shmid,IPC_RMID,0)==-1){
 		            perror("shmctl failed");
 		            return 1;
@@ -127,8 +141,8 @@ int main(int argc,char const *argv[]){
 		    	break;
             
             case 3:	buf.mesg_type = operation_num;
-		    	buf.seq_num = sequence_num;
-		        strcpy(buf.mesg_text, graph_fn);
+		    	//buf.seq_num = sequence_num;
+		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
 		        printf("%s", read_prompt);
 		        scanf("%d", &starting_vertex);
 		        
@@ -154,15 +168,15 @@ int main(int argc,char const *argv[]){
 		            perror("shmdt failed");
 		            return 1;
 		        }
-		        if(msgsnd(msgid,&buf,sizeof(buf),0)==-1){
+		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_cont),0)==-1){
 		            perror("msgsnd error");
 		            exit(1);
 		        }
-		        if(msgrcv(msgid,&buf2.mesg_text,strlen(buf2.mesg_text)+1,0,0)==-1){
+		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_cont),0,0)==-1){
 		            perror("msgrcv error");
 		            exit(1);
 		        }
-		        printf("%s", buf2.mesg_text);
+		        printf("%s", buf2.mesg_cont.mesg_text);
 		        if(shmctl(shmid,IPC_RMID,0)==-1){
 		            perror("shmctl failed");
 		            return 1;
