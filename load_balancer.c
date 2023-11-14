@@ -7,10 +7,13 @@
 #include <sys/msg.h>
 #include <errno.h>
 #include <string.h>
+
 #define PERMS 0666
+#define IDENTIFIER 3
 
 struct mesg_content{
 	long sequence_num;
+    long operation_num;
 	char mesg_text[100];
 }; 
 typedef struct mesg_content mesg_content;
@@ -36,18 +39,20 @@ int main(int argc, char* argv[]){
     printf("Load Balancer running! Message Queue created!\n");
     while(1){
         fflush(stdout);
+        printf("\n");
         if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),0,0)==-1){
             perror("msgrcv");
             exit(1);
         }
-        printf("Received Message!\n");
+        printf("Received Message from: %ld\n",buf.mesg_type);
         printf("Sequence Number: %ld\n",buf.mesg_cont.sequence_num);
         printf("Contents: %s\n", buf.mesg_cont.mesg_text);
-        switch(buf.mesg_type){
+        switch(buf.mesg_cont.operation_num){
             case 1:
             case 2:
                 struct mesg_buffer buf2;
-                buf2.mesg_type = buf.mesg_type;
+                buf2.mesg_type = IDENTIFIER;
+                buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
                 buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
                 strcpy(buf2.mesg_cont.mesg_text, buf.mesg_cont.mesg_text);
                 if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
