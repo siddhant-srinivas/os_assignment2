@@ -9,7 +9,8 @@
 #include <string.h>
 
 #define PERMS 0666
-#define IDENTIFIER 3
+#define MSG_TYPE_PRIMARY 3
+#define MSG_TYPE_SECONDARY 4
 
 struct mesg_content{
 	long sequence_num;
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]){
             case 1:
             case 2:
                 struct mesg_buffer buf2;
-                buf2.mesg_type = IDENTIFIER;
+                buf2.mesg_type = MSG_TYPE_PRIMARY;
                 buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
                 buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
                 strcpy(buf2.mesg_cont.mesg_text, buf.mesg_cont.mesg_text);

@@ -10,8 +10,7 @@
 #include <string.h>
 
 #define PERMS 0644  
-#define IDENTIFIER 1
-
+#define MSG_TYPE 1 //represents communication from client to load balancer
 struct mesg_content{
 	long sequence_num;
 	long operation_num;
@@ -71,7 +70,7 @@ int main(int argc,char const *argv[]){
         int shmid;
 	int BUF_SIZE = sizeof(int) * 900;
 	int *shmptr;
-        buf.mesg_type = IDENTIFIER;
+        buf.mesg_type = MSG_TYPE;
         switch(operation_num){
             case 1:
             case 2:	buf.mesg_cont.operation_num = operation_num;
@@ -133,7 +132,7 @@ int main(int argc,char const *argv[]){
 		            perror("msgsnd error");
 		            exit(1);
 		        }
-		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_cont),0,0)==-1){
+		        if(msgrcv(msgid,&buf2,sizeof(buf2.mesg_cont),2,0)==-1){
 		            perror("msgrcv error");
 		            exit(1);
 		        }

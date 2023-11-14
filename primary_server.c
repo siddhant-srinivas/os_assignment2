@@ -12,7 +12,7 @@
 
 #define SHM_KEY 0x1234
 #define PERMS 0644  
-#define IDENTIFIER 2
+#define MSG_TYPE 2 // Primary Server <-> Client
 
 struct mesg_content{
 	long sequence_num;
@@ -25,10 +25,17 @@ struct mesg_buffer{
     // long seq_num;
     mesg_content mesg_cont;
 };
+
+struct thread_arg{
+    int msgid;
+    struct mesg_buffer buf;
+};
 void* add_or_modify_graph(void *arg){
-    
     key_t shm_key;
-    char *graph_fn = (char *)arg;
+    struct mesg_buffer buf = (*(struct thread_arg*)arg).buf;
+    int msgid = (*(struct thread_arg*)arg).msgid;
+    char* graph_fn = buf.mesg_cont.mesg_text;
+    struct mesg_buffer buf2;
     /*for(int i = 0; i < 100; i++){
 
     }
@@ -85,17 +92,27 @@ void* add_or_modify_graph(void *arg){
         perror("shmdt");
         exit(EXIT_FAILURE);
     }
+    char graph_addn[] = "File successfully added";
+    char graph_modif[] = "File successfully modified";
+    buf2.mesg_type = MSG_TYPE;
+    buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
+    buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
+    buf.mesg_cont.operation_num ==1 ? strcpy(buf2.mesg_cont.mesg_text, graph_addn) : strcpy(buf2.mesg_cont.mesg_text,graph_modif);
+    if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+            perror("msgsnd error here");
+            exit(1);
+    }
 }
 
 int main(int argc,char const *argv[]){
     struct mesg_buffer buf;
-    struct mesg_buffer buf2;
+
     pthread_t tid;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     key_t msg_key;
     int msgid;
-    void* res;
+    
     if((msg_key=ftok("load_balancer.c",'B'))==-1){
         perror("ftok");
         exit(1);
@@ -107,7 +124,7 @@ int main(int argc,char const *argv[]){
     printf("Primary Server Running! Established connection to Message Queue!\n");
     while(1){
         printf("\n");
-        if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),0,0)==-1){
+        if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),3,0)==-1){
             printf("%s", buf.mesg_cont.mesg_text);
             perror("msgrcv");
             exit(1);
@@ -115,50 +132,22 @@ int main(int argc,char const *argv[]){
         printf("Received message from: %ld\n",buf.mesg_type);
         switch(buf.mesg_cont.operation_num){
             case 1:
-                if(pthread_create(&tid, &attr, add_or_modify_graph, (void *)buf.mesg_cont.mesg_text) != 0)
+            case 2:
+                struct thread_arg arg;
+                arg.msgid = msgid;
+                arg.buf = buf;
+                if(pthread_create(&tid, &attr, add_or_modify_graph, (void *)&arg) != 0)
                 {
                     perror("pthread create failed");
                     return 1;
                 }
-           
+                void* res;
                 pthread_join(tid, &res);
-                if(*(int*)res != 0){
+                if(*(int*)res == EINVAL || *(int*)res == ESRCH || *(int*)res == EDEADLK){
                     perror("join error");
                     return 1;
-                }
-                char graph_addn[] = "File successfully added";
-                buf2.mesg_type = IDENTIFIER;
-                buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
-                buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
-                strcpy(buf2.mesg_cont.mesg_text, graph_addn);
-                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
-                        perror("msgsnd error here");
-                        exit(1);
                 }
                 
-               
-               
-                break;
-            case 2:
-                if(pthread_create(&tid, &attr, add_or_modify_graph, (void *)buf.mesg_cont.mesg_text) != 0)
-                {
-                    perror("pthread create failed");
-                    return 1;
-                }
-                pthread_join(tid, &res);
-                 if(*(int*)res != 0){
-                    perror("join error");
-                    return 1;
-                }
-                char graph_modif[] = "File successfully modified";
-                buf2.mesg_type = buf.mesg_type;
-                buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
-                buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
-                strcpy(buf2.mesg_cont.mesg_text, graph_modif);
-                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
-                        perror("msgsnd");
-                        exit(1);
-                }
                 break;
         }  
     }  
