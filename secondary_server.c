@@ -13,11 +13,16 @@
 #define SHM_KEY 0x1234
 #define PERMS 0644  
 
-struct mesg_buffer
-{
+struct mesg_content{
+	long sequence_num;
+	long operation_num;
+	char mesg_text[100];
+}; 
+typedef struct mesg_content mesg_content;
+struct mesg_buffer{
     long mesg_type;
-    long seq_num;
-    char mesg_text[100];
+    // long seq_num;
+    mesg_content mesg_cont;
 };
 struct dfsStruct        //This is the stuff we need in order to do dfs. Using struct because we can pass only 1 arg in thread creation
 {
@@ -155,11 +160,11 @@ void* dfsStartRoutine(void *arg)
 
 int main(int argc,char const *argv[])
 {
-    /*//Handling server numbers
+    //Handling server numbers
     int server_num = atoi(argv[1]);
     server_num %= 2;
-    if(server_num%2 ==0) server_num +=2;*/
-
+    if(server_num%2 ==0) server_num +=2;
+    printf("Secondary Server %d Running! Established Communication with the Message Queue\n",server_num);
     struct mesg_buffer buf;
     struct mesg_buffer buf2;
     key_t key;
@@ -177,27 +182,29 @@ int main(int argc,char const *argv[])
 
     while(1)
     {
-        if(msgrcv(msgid,&buf,sizeof(buf),0,0)==-1)
+        if(msgrcv(msgid,&buf,sizeof(buf),4,0)==-1)
         {
-            printf("%s", buf.mesg_text);
             perror("msgrcv");
             exit(1);
         }
-        switch(buf.mesg_type)
+ printf("Received Message from: %ld\n",buf.mesg_type);
+        printf("Sequence Number: %ld\n",buf.mesg_cont.sequence_num);
+        printf("Contents: %s\n", buf.mesg_cont.mesg_text);
+        switch(buf.mesg_cont.operation_num)
         {
             case 3:
                 pthread_t tid;
                 pthread_attr_t attr;
                 pthread_attr_init(&attr);
-                if(pthread_create(&tid, &attr, dfsStartRoutine, (void *)buf.mesg_text) != 0)  //creating a new thread to service this request
+                if(pthread_create(&tid, &attr, dfsStartRoutine, (void *)buf.mesg_cont.mesg_text) != 0)  //creating a new thread to service this request
                 {
                     perror("pthread create failed");
                     return 1;
                 }
                 
                 char dfs_rd_done[] = "DFS reading done";
-                strcpy(buf2.mesg_text, dfs_rd_done);
-                if(msgsnd(msgid,&buf2.mesg_text,strlen(buf2.mesg_text)+1,0)==-1)
+                strcpy(buf2.mesg_cont.mesg_text, dfs_rd_done);
+                if(msgsnd(msgid,&buf2.mesg_cont.mesg_text,strlen(buf2.mesg_cont.mesg_text)+1,0)==-1)
                 {
                         perror("msgsnd");
                         exit(1);
@@ -211,6 +218,9 @@ int main(int argc,char const *argv[])
             
             
             case 4:
+                break;
+            default:
+                break;
         }  
     }    
     
