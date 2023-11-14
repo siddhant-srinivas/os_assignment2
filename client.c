@@ -10,9 +10,11 @@
 #include <string.h>
 
 #define PERMS 0644  
+#define IDENTIFIER 1
 
 struct mesg_content{
 	long sequence_num;
+	long operation_num;
 	char mesg_text[100];
 }; 
 typedef struct mesg_content mesg_content;
@@ -36,12 +38,12 @@ int main(int argc,char const *argv[]){
         perror("msgget failed");
         exit(1);
     }
-    
+    printf("Client Running! Connection established with Message Queue!\n");
     int sequence_num;
     int operation_num;
     char graph_fn[100];
     
-    char menu_options[] = "1. Add a new graph to the database\n2. Modify an existing graph of the database\n3. Perform DFS on an existing graph of the database\n4. Perform BFS on an existing graph of the database\n\n";
+    char menu_options[] = "\n1. Add a new graph to the database\n2. Modify an existing graph of the database\n3. Perform DFS on an existing graph of the database\n4. Perform BFS on an existing graph of the database\n\n";
 
     
 
@@ -69,10 +71,10 @@ int main(int argc,char const *argv[]){
         int shmid;
 	int BUF_SIZE = sizeof(int) * 900;
 	int *shmptr;
-        
+        buf.mesg_type = IDENTIFIER;
         switch(operation_num){
             case 1:
-            case 2:	buf.mesg_type = operation_num;
+            case 2:	buf.mesg_cont.operation_num = operation_num;
 			buf.mesg_cont.sequence_num = sequence_num;
 		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
 		        printf("Enter the number of nodes of the graph: ");
@@ -135,15 +137,16 @@ int main(int argc,char const *argv[]){
 		            perror("msgrcv error");
 		            exit(1);
 		        }
-		        printf("%s\n", buf2.mesg_cont.mesg_text);
+				printf("Received Message from: %ld\n",buf2.mesg_type);
+		        printf("Response from Load Balancer: %s\n", buf2.mesg_cont.mesg_text);
 		        if(shmctl(shmid,IPC_RMID,0)==-1){
 		            perror("shmctl failed");
 		            return 1;
 		        }
 		    	break;
             
-            case 3:	buf.mesg_type = operation_num;
-		    	//buf.seq_num = sequence_num;
+            case 3:	buf.mesg_cont.operation_num = operation_num;
+		    	buf.mesg_cont.sequence_num = sequence_num;
 		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
 		        printf("%s", read_prompt);
 		        scanf("%d", &starting_vertex);

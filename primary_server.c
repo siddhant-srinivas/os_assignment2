@@ -12,9 +12,11 @@
 
 #define SHM_KEY 0x1234
 #define PERMS 0644  
+#define IDENTIFIER 2
 
 struct mesg_content{
 	long sequence_num;
+    long operation_num;
 	char mesg_text[100];
 }; 
 typedef struct mesg_content mesg_content;
@@ -48,20 +50,21 @@ void* add_or_modify_graph(void *arg){
         perror("SHMPTR ERROR");
         return NULL;
     }
-    printf("Reached here!\n");
     int nodes = *shmptr;
+    int *ptr = shmptr;
     printf("Nodes: %d\n",nodes);
-    int *ptr = shmptr + 4;  // Start of matrix values
-    printf("First value is: %d\n",*ptr);
+    shmptr++;
+      // Start of matrix values
     int adj_matrix[nodes][nodes];
     for(int i = 0; i < nodes; i++){
         for(int j = 0; j < nodes; j++){
-            adj_matrix[i][j] = *ptr;
+            adj_matrix[i][j] = *shmptr;
             printf("%d ",adj_matrix[i][j]);
-            ptr++;
+            shmptr++;
         }
         printf("\n");
     }
+    shmptr = ptr;
     FILE* file = fopen(graph_fn, "w");
     if (file == NULL) {
         perror("Error opening file");
@@ -77,7 +80,7 @@ void* add_or_modify_graph(void *arg){
     }
 
     fclose(file);
-
+    printf("Operation successful!\n");
     if (shmdt(shmptr) == -1) {
         perror("shmdt");
         exit(EXIT_FAILURE);
@@ -85,7 +88,6 @@ void* add_or_modify_graph(void *arg){
 }
 
 int main(int argc,char const *argv[]){
-
     struct mesg_buffer buf;
     struct mesg_buffer buf2;
     pthread_t tid;
@@ -93,6 +95,7 @@ int main(int argc,char const *argv[]){
     pthread_attr_init(&attr);
     key_t msg_key;
     int msgid;
+    void* res;
     if((msg_key=ftok("load_balancer.c",'B'))==-1){
         perror("ftok");
         exit(1);
@@ -101,33 +104,40 @@ int main(int argc,char const *argv[]){
         perror("msgget");
         exit(1);
     }
+    printf("Primary Server Running! Established connection to Message Queue!\n");
     while(1){
+        printf("\n");
         if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),0,0)==-1){
             printf("%s", buf.mesg_cont.mesg_text);
             perror("msgrcv");
             exit(1);
         }
-        switch(buf.mesg_type){
+        printf("Received message from: %ld\n",buf.mesg_type);
+        switch(buf.mesg_cont.operation_num){
             case 1:
                 if(pthread_create(&tid, &attr, add_or_modify_graph, (void *)buf.mesg_cont.mesg_text) != 0)
                 {
                     perror("pthread create failed");
                     return 1;
                 }
-                void* res;
-                pthread_join(tid,&res);
+           
+                pthread_join(tid, &res);
+                if(*(int*)res != 0){
+                    perror("join error");
+                    return 1;
+                }
                 char graph_addn[] = "File successfully added";
                 buf2.mesg_type = buf.mesg_type;
                 buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
+                buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
                 strcpy(buf2.mesg_cont.mesg_text, graph_addn);
                 if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
                         perror("msgsnd error here");
                         exit(1);
                 }
-                if(pthread_join(tid, NULL) != 0){
-                    perror("join error");
-                    return 1;
-                }
+                
+               
+               
                 break;
             case 2:
                 if(pthread_create(&tid, &attr, add_or_modify_graph, (void *)buf.mesg_cont.mesg_text) != 0)
@@ -135,16 +145,19 @@ int main(int argc,char const *argv[]){
                     perror("pthread create failed");
                     return 1;
                 }
+                pthread_join(tid, &res);
+                 if(*(int*)res != 0){
+                    perror("join error");
+                    return 1;
+                }
                 char graph_modif[] = "File successfully modified";
+                buf2.mesg_type = buf.mesg_type;
+                buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
                 buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
                 strcpy(buf2.mesg_cont.mesg_text, graph_modif);
                 if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
                         perror("msgsnd");
                         exit(1);
-                }
-                if(pthread_join(tid, NULL) != 0){
-                    perror("join error");
-                    return 1;
                 }
                 break;
         }  
