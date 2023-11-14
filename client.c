@@ -138,7 +138,7 @@ int main(int argc,char const *argv[]){
 		            exit(1);
 		        }
 				printf("Received Message from: %ld\n",buf2.mesg_type);
-		        printf("Response from Load Balancer: %s\n", buf2.mesg_cont.mesg_text);
+		        printf("Response from Primary Server: %s\n", buf2.mesg_cont.mesg_text);
 		        if(shmctl(shmid,IPC_RMID,0)==-1){
 		            perror("shmctl failed");
 		            return 1;
