@@ -127,7 +127,7 @@ int main(int argc,char const *argv[]){
                     return 1;
                 }
                 char graph_addn[] = "File successfully added";
-                buf2.mesg_type = buf.mesg_type;
+                buf2.mesg_type = IDENTIFIER;
                 buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
                 buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
                 strcpy(buf2.mesg_cont.mesg_text, graph_addn);
