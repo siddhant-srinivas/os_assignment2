@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define SHM_KEY 0x1234
 #define PERMS 0644  
@@ -32,6 +35,7 @@ struct thread_arg{
 };
 void* add_or_modify_graph(void *arg){
     key_t shm_key;
+    sem_t *sem = sem_open("write_protect",O_EXCL);
     struct mesg_buffer buf = (*(struct thread_arg*)arg).buf;
     int msgid = (*(struct thread_arg*)arg).msgid;
     char* graph_fn = buf.mesg_cont.mesg_text;
@@ -40,7 +44,7 @@ void* add_or_modify_graph(void *arg){
 
     }
     char graph_fn[100]; */
-
+    sem_wait(sem);
     if((shm_key=ftok("client.c",'D'))== -1){
         perror("ftok failed");
         exit(1);
@@ -94,6 +98,7 @@ void* add_or_modify_graph(void *arg){
     }
     char graph_addn[] = "File successfully added";
     char graph_modif[] = "File successfully modified";
+    sem_post(sem);
     buf2.mesg_type = MSG_TYPE;
     buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
     buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
@@ -102,17 +107,19 @@ void* add_or_modify_graph(void *arg){
             perror("msgsnd error here");
             exit(1);
     }
+
 }
 
 int main(int argc,char const *argv[]){
     struct mesg_buffer buf;
-
+    sem_t *sem;
     pthread_t tid;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     key_t msg_key;
     int msgid;
-    
+    sem = sem_open("write_protect",O_CREAT | O_EXCL,PERMS, 1);
+    sem_unlink("write_protect");
     if((msg_key=ftok("load_balancer.c",'B'))==-1){
         perror("ftok");
         exit(1);
