@@ -481,6 +481,16 @@ int main(int argc,char const *argv[])
                 }
                 break;
             case 10:
+            struct mesg_buffer buf2;
+                char cont[] = "Terminating";
+                buf2.mesg_type = listen_no;
+				buf2.mesg_cont.operation_num = 10;
+				buf2.mesg_cont.sequence_num = -1;
+				strcpy(buf2.mesg_cont.mesg_text, cont);
+                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+					perror("msgsnd");
+					exit(1);
+				}
                 printf("Secondary server %d terminated\n", server_num);
                 exit(0);
             default:
