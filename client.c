@@ -151,7 +151,7 @@ int main(int argc,char const *argv[]){
 		        scanf("%d", &starting_vertex);
 		        
 		        
-		        if((shm_key=ftok("client.c",'D'))== -1){
+		        if((shm_key=ftok("client.c",'E'))== -1){
 		            perror("ftok failed");
 		            exit(1);
 		        }

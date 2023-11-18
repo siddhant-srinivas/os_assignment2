@@ -75,7 +75,16 @@ void* dfs(void* args)
 
 void startDFS(struct dfsStruct* dfsReqs)
 {
-
+    printf("The dfs struct adjacency matrix is: \n");
+    for (int i = 0; i < dfsReqs->n; ++i)
+    {
+        for (int j = 0; j < dfsReqs->n; ++j)
+        {
+            printf("%d " , dfsReqs->adjacency_matrix[i][j]);
+        }
+        printf("\n");
+    }
+    
     pthread_mutex_init(&dfsReqs->mutex, NULL);                          //initializing the visited and mutex of the struct
     dfsReqs->visited = (int*)calloc(dfsReqs->n, sizeof(int));
     
@@ -104,7 +113,7 @@ void* dfsStartRoutine(void *arg)
     
     key_t shm_key;
     char *graph_fn = (char *)arg;
-    if((shm_key=ftok("client.c",'D'))== -1)
+    if((shm_key=ftok("client.c",'E'))== -1)
     {
         perror("ftok failed");
         exit(1);
@@ -146,9 +155,11 @@ void* dfsStartRoutine(void *arg)
             fscanf(file, "%d", &dfsReqs.adjacency_matrix[i][j]);
         }
     }
+    
     fclose(file);
     //at this stage, we have the first 3 elements of dfsReqs
     //now we will do dfs
+
     startDFS(&dfsReqs);
 
     if (shmdt(shmptr) == -1)
@@ -189,6 +200,8 @@ int main(int argc,char const *argv[])
             exit(1);
         }
  //printf("Received Message from: %ld\n",buf.mesg_type);
+ if(buf.mesg_cont.sequence_num%server_num!=0) continue;
+ 
         printf("Sequence Number: %ld\n",buf.mesg_cont.sequence_num);
         printf("Contents: %s\n", buf.mesg_cont.mesg_text);
         switch(buf.mesg_cont.operation_num)
@@ -208,7 +221,7 @@ int main(int argc,char const *argv[])
                  buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
     		buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
 	    	buf2.mesg_type = MSG_TYPE;
-                if(msgsnd(msgid,&buf2,sizeof(buf2),0)==-1)
+                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1)
                 {
                         perror("msgsnd");
                         exit(1);

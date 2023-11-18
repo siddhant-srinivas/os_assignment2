@@ -63,7 +63,11 @@ int main(int argc, char* argv[]){
                break;
                
             case 3:
-                if(msgsnd(msgid,&buf,sizeof(buf.mesg_cont),0)==-1){
+            buf2.mesg_type = MSG_TYPE_SECONDARY;
+            buf2.mesg_cont.operation_num = 3;
+            buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
+            strcpy(buf2.mesg_cont.mesg_text,buf.mesg_cont.mesg_text);
+                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
                         perror("msgsnd");
                         exit(1);
                 }
