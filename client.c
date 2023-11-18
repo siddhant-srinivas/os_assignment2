@@ -8,6 +8,9 @@
 #include <sys/shm.h>
 #include <errno.h>
 #include <string.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define PERMS 0644  
 #define MSG_TYPE 1 //represents communication from client to load balancer
@@ -24,7 +27,6 @@ struct mesg_buffer{
 };
 
 int main(int argc,char const *argv[]){
-
     key_t msg_key;
     key_t shm_key;
     int msgid;
@@ -73,7 +75,9 @@ int main(int argc,char const *argv[]){
         buf.mesg_type = MSG_TYPE;
         switch(operation_num){
             case 1:
-            case 2:	buf.mesg_cont.operation_num = operation_num;
+            case 2:	
+			
+			buf.mesg_cont.operation_num = operation_num;
 			buf.mesg_cont.sequence_num = sequence_num;
 		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
 		        printf("Enter the number of nodes of the graph: ");
@@ -97,7 +101,7 @@ int main(int argc,char const *argv[]){
 		                scanf("%d", &adj_matrix[i][j]);
 		            }
 		        }
-
+			
 		        //Creating shared memory segment
 		        if((shm_key=ftok("client.c",'D'))== -1){
 		            perror("ftok failed");
@@ -109,7 +113,6 @@ int main(int argc,char const *argv[]){
 		            perror("SHM error");
 		            return 1;
 		        }
-				printf("Shared memory key: %d, shared memory id: %d\n",shm_key,shmid);
 		        shmptr = (int *)shmat(shmid, NULL, 0);
 		        if(shmptr == (int*)-1){
 		            perror("SHMPTR ERROR");
@@ -129,6 +132,7 @@ int main(int argc,char const *argv[]){
 		            perror("shmdt failed");
 		            return 1;
 		        }
+				
 		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_cont),0)==-1){
 		            perror("msgsnd error");
 		            exit(1);
@@ -145,13 +149,16 @@ int main(int argc,char const *argv[]){
 		        }
 		    	break;
             
-            case 3:	buf.mesg_cont.operation_num = operation_num;
+            case 3:
+			case 4:
+				buf.mesg_cont.operation_num = operation_num;
 		    	buf.mesg_cont.sequence_num = sequence_num;
 		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
 		        printf("%s", read_prompt);
 		        scanf("%d", &starting_vertex);
 		        
 		        char key_letter = sequence_num%2==0 ? 'E' : 'F';
+				
 		        if((shm_key=ftok("client.c",key_letter))== -1){
 		            perror("ftok failed");
 		            exit(1);
@@ -172,6 +179,7 @@ int main(int argc,char const *argv[]){
 		            perror("shmdt failed");
 		            return 1;
 		        }
+			
 		        if(msgsnd(msgid,&buf,sizeof(buf.mesg_cont),0)==-1){
 		            perror("msgsnd error");
 		            exit(1);
