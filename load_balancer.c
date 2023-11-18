@@ -74,6 +74,9 @@ int main(int argc, char* argv[]){
                 }
                break;
             case 10:
+            struct mesg_buffer buf3;
+            struct mesg_buffer buf4;
+            struct mesg_buffer buf5;
 				buf2.mesg_type = MSG_TYPE_PRIMARY;
 				buf2.mesg_cont.operation_num = 10;
 				buf2.mesg_cont.sequence_num = -1;
@@ -97,7 +100,21 @@ int main(int argc, char* argv[]){
 					perror("msgsnd");
 					exit(1);
 				}
-				sleep(5);
+                int count = 3;
+                while(count> 0){
+                     if(msgrcv(msgid,&buf3,sizeof(buf3),0,0)==-1)
+                        {
+                            perror("msgrcv");
+                            exit(1);
+                        }
+                        else{
+                            printf("%ld ",buf3.mesg_type);
+                            count--;
+                        }
+                        
+                }
+               printf("\n%d\n",count);
+				if(count==0) sleep(5);
 				if(msgctl(msgid, IPC_RMID, NULL) == -1){
 					perror("Could not close message queue");
 					exit(1);

@@ -147,7 +147,7 @@ int main(int argc,char const *argv[]){
     }
     printf("Primary Server Running! Established connection to Message Queue!\n");
     while(1){
-        printf("\n");
+        printf("New iter\n");
         if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),3,0)==-1){
             printf("%s", buf.mesg_cont.mesg_text);
             perror("msgrcv");
@@ -171,9 +171,18 @@ int main(int argc,char const *argv[]){
                     perror("join error");
                     return 1;
                 }
-                
                 break;
                 case 10:
+                    struct mesg_buffer buf2;
+                    char cont[] = "Terminating";
+                    buf2.mesg_type = 3;
+                    buf2.mesg_cont.operation_num = 10;
+                    buf2.mesg_cont.sequence_num = -1;
+                    strcpy(buf2.mesg_cont.mesg_text, cont);
+                    if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+                        perror("msgsnd");
+                        exit(1);
+                    }
                     printf("Primary server terminated\n");
                     exit(0);
                 default:
