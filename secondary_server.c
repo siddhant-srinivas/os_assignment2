@@ -31,18 +31,21 @@ struct dfsStruct        //This is the stuff we need in order to do dfs. Using st
     int starting_vertex;
     int **adjacency_matrix;
     int *num_neighbours;
+    int buffer;
     int *visited;
     pthread_mutex_t mutex;
 };
 
-struct bfsSturct{
+struct bfsStruct{
     int n;
     int starting_vertex;
     int **adjacency_matrix;
-    int queue[50];
+    int *queue;
     int front;
     int back;
+    int buffer;
     int* visited;
+    int* path;
     pthread_mutex_t mutex;
 };
 
@@ -52,16 +55,198 @@ struct thread_args{
     int server_num;
 };
 
+void* bfs(void* args){
+    struct bfsStruct* bfsReqs = (struct bfsStruct*)args;
+    int row = bfsReqs->queue[bfsReqs->front];
+        bfsReqs->path[(bfsReqs->buffer)++] = bfsReqs->queue[bfsReqs->front++]+1;
+        for(int i = 0; i < bfsReqs->n; i++){
+            
+            if (bfsReqs->adjacency_matrix[row][i] && !bfsReqs->visited[i]){
+                bfsReqs->queue[(bfsReqs->back)++] = i;
+                bfsReqs->visited[i] = 1;
+            }
+        }
+}
+void* bfsInit(void* args)
+{  printf("\n");
+    struct bfsStruct* bfsReqs = (struct bfsStruct*)args;
+    int startNode = bfsReqs->starting_vertex; //-1 becasue array indexing starts from 0
+    bfsReqs->queue[(bfsReqs->back)++] = startNode;
+    pthread_mutex_lock(&bfsReqs->mutex);   //locking mutex (visited array is the critical section)
+    bfsReqs->visited[startNode] = 1;
+    pthread_mutex_unlock(&bfsReqs->mutex); //unlocking mutex
+    
+    while((bfsReqs->front) < (bfsReqs->back))   //exploring adjacent dfs_nodes
+    {   
+         int size = (bfsReqs->back)-(bfsReqs->front);
+          pthread_t tid[size];
+	    pthread_attr_t attr[size];
+        for(int j=0;j<size;j++){
+	    pthread_attr_init(&attr[j]);
+        }
+        for(int j=0;j<size;j++){
+            if(pthread_create(&tid[j], &attr[j], bfs, bfsReqs) != 0){
+	    	perror("pthread create failed");
+		    pthread_exit(NULL);
+	         }
+        }
+          for(int j=0;j<size;j++){
+             if(pthread_join(tid[j], NULL) != 0){
+		        perror("join error");
+	    	    pthread_exit(NULL);
+	        }
+          } 
+          
+        }
+
+       
+    
+    pthread_exit(NULL);
+}
+void startBFS(struct bfsStruct* bfsReqs)
+{   printf("\n");
+    pthread_mutex_init(&bfsReqs->mutex, NULL);                          //initializing the visited and mutex of the struct
+    bfsReqs->visited = (int*)calloc(bfsReqs->n, sizeof(int));
+
+    pthread_t tid;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    if(pthread_create(&tid, &attr, bfsInit, bfsReqs) != 0)  //creating a new thread to service this request
+    {
+    	perror("pthread create failed");
+        pthread_exit(NULL);
+    }
+    if(pthread_join(tid, NULL) != 0)
+    {
+        perror("join error");
+    	pthread_exit(NULL);
+    }
+    
+    pthread_mutex_destroy(&bfsReqs->mutex);
+    free(bfsReqs->visited);
+}
+void* bfsStartRoutine(void *arg)
+{
+
+    struct bfsStruct bfsReqs;
+   struct mesg_buffer buf2;
+    key_t shm_key;
+    struct thread_args threadArgs = *(struct thread_args*)arg;
+    char graph_fn[20];
+    int msgid = threadArgs.msgid;
+    strcpy(graph_fn,threadArgs.graph_fn);
+    int server_num = threadArgs.server_num;
+    char key_letter = server_num%2==0 ? 'E' : 'F';
+    if((shm_key=ftok("client.c",key_letter))== -1)
+    {
+        perror("ftok failed");
+        exit(1);
+    }
+
+    int shmid;
+    int BUF_SIZE = sizeof(int) * 900;
+    shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
+    if(shmid == -1)
+    {
+        perror("SHM error");
+        pthread_exit(NULL);
+    }
+    int *shmptr = (int *)shmat(shmid, NULL, 0);
+    if(shmptr == (int*)-1)
+    {
+        perror("SHMPTR ERROR");
+        pthread_exit(NULL);
+    }
+    printf("Read value from shared memory: %d\n", *shmptr);
+    bfsReqs.starting_vertex = *shmptr;
+  
+    bfsReqs.starting_vertex--;
+    
+    FILE* file = fopen(graph_fn, "r");
+    if (file == NULL)
+    {
+        perror("Error opening file");
+        pthread_exit(NULL);
+    }
+    fscanf(file, "%d", &bfsReqs.n);
+
+    int n = bfsReqs.n;
+    bfsReqs.front = 0;
+    bfsReqs.back = 0;
+    bfsReqs.buffer = 0;
+    bfsReqs.queue = (int *)calloc(n,sizeof(int));
+    bfsReqs.path = (int *)calloc(n,sizeof(int));
+    bfsReqs.adjacency_matrix = (int **)malloc(sizeof(int *) * n);
+    for (int i = 0; i < n; ++i)
+    {
+        bfsReqs.adjacency_matrix[i] = (int *)malloc(sizeof(int) * n);
+    }
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            fscanf(file, "%d", &bfsReqs.adjacency_matrix[i][j]);
+        }
+    }
+    
+    fclose(file);
+    //at this stage, we have the first 3 elements of dfsReqs
+    //now we will do dfs
+
+      startBFS(&bfsReqs);
+    
+
+  
+
+    if (shmdt(shmptr) == -1)
+    {
+        perror("shmdt");
+        exit(EXIT_FAILURE);
+    }
+
+     char bfs_rd_done[20];
+     strcpy(bfs_rd_done,"");
+     for(int i=0;i<bfsReqs.n;i++){
+        char temp[10];
+        sprintf(temp,"%d",bfsReqs.path[i]);
+        strcat(bfs_rd_done,temp);
+        if(i!=(bfsReqs.n)-1) strcat(bfs_rd_done," ");
+     }
+                strcpy(buf2.mesg_cont.mesg_text, bfs_rd_done);
+                 buf2.mesg_cont.sequence_num = threadArgs.server_num;
+    		buf2.mesg_cont.operation_num = 3;
+	    	buf2.mesg_type = MSG_TYPE;
+                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1)
+                {
+                        perror("msgsnd");
+                        exit(1);
+                }
+}
+
+
+int dfs_nodes[30];
+int buffer = 0;
 void* dfs(void* args)
 {  
     struct dfsStruct* dfsReqs = (struct dfsStruct*)args;
     int currentNode = dfsReqs->starting_vertex; //-1 becasue array indexing starts from 0
     pthread_mutex_lock(&dfsReqs->mutex);   //locking mutex (visited array is the critical section)
-    printf("Visiting node: %d\n", currentNode + 1);  //because we had done -1 above
     dfsReqs->visited[currentNode] = 1;
     pthread_mutex_unlock(&dfsReqs->mutex); //unlocking mutex
-    
-    for (int i = 0; i < dfsReqs->n; i++)    //exploring adjacent nodes
+    int isLeafNode = 1;
+    for(int i=0;i<dfsReqs->n;i++){
+        if(i!=currentNode && (dfsReqs->adjacency_matrix)[currentNode][i]==1){
+              if(!dfsReqs->visited[i]){
+            isLeafNode *=0;
+        }
+        }
+      
+    }
+    if(isLeafNode){
+        printf("%d is a leaf node\n",currentNode+1);
+         dfs_nodes[buffer++] = currentNode+1;
+    }
+    for (int i = 0; i < dfsReqs->n; i++)    //exploring adjacent dfs_nodes
     {
         if (!dfsReqs->visited[i] && dfsReqs->adjacency_matrix[currentNode][i])
         {
@@ -120,6 +305,9 @@ void* dfsStartRoutine(void *arg)
     struct dfsStruct dfsReqs;
    struct mesg_buffer buf2;
     key_t shm_key;
+    for(int i=0;i<30;i++){
+        dfs_nodes[i] = 0;
+    }
     struct thread_args threadArgs = *(struct thread_args*)arg;
     char graph_fn[20];
     int msgid = threadArgs.msgid;
@@ -160,6 +348,7 @@ void* dfsStartRoutine(void *arg)
     fscanf(file, "%d", &dfsReqs.n);
 
     int n = dfsReqs.n;
+    dfsReqs.buffer = 0;
     dfsReqs.num_neighbours = (int *)calloc(n,sizeof(int));
     dfsReqs.adjacency_matrix = (int **)malloc(sizeof(int *) * n);
     for (int i = 0; i < n; ++i)
@@ -177,17 +366,8 @@ void* dfsStartRoutine(void *arg)
     fclose(file);
     //at this stage, we have the first 3 elements of dfsReqs
     //now we will do dfs
-    for(int i=0;i<n;i++){
-        for(int j=0;j<n;j++){
-            if(dfsReqs.adjacency_matrix[i][j] == 1)
-            dfsReqs.num_neighbours[i]++;
-        }
-    }
-    printf("The number of neighbours for each node are: \n");
-    for(int i=0;i<n;i++){
-        printf("%d ",dfsReqs.num_neighbours[i]);
-    }
-   printf("\n");
+   
+  
       startDFS(&dfsReqs);
     
 
@@ -199,7 +379,14 @@ void* dfsStartRoutine(void *arg)
         exit(EXIT_FAILURE);
     }
 
-     char dfs_rd_done[] = "DFS reading done";
+     char dfs_rd_done[40];
+        strcpy(dfs_rd_done,"");
+        for(int i=0;i<(buffer);i++){
+            char temp[10];
+    sprintf(temp,"%d",dfs_nodes[i]);
+    strcat(dfs_rd_done,temp);
+    if(i!=buffer-1) strcat(dfs_rd_done," ");
+}
                 strcpy(buf2.mesg_cont.mesg_text, dfs_rd_done);
                  buf2.mesg_cont.sequence_num = threadArgs.server_num;
     		buf2.mesg_cont.operation_num = 3;
@@ -234,7 +421,7 @@ int main(int argc,char const *argv[])
         perror("msgget failed");
         exit(1);
     }
-
+    printf("Listening to messages of type: %d\n",listen_no);
     while(1)
     {
         if(msgrcv(msgid,&buf,sizeof(buf),listen_no,0)==-1)
@@ -282,7 +469,7 @@ int main(int argc,char const *argv[])
                 args.server_num = buf.mesg_cont.sequence_num;
                 args.msgid = msgid;
                 pthread_attr_init(&attr);
-                if(pthread_create(&tid, &attr, dfsStartRoutine, (void *)&args) != 0)  //creating a new thread to service this request
+                if(pthread_create(&tid, &attr, bfsStartRoutine, (void *)&args) != 0)  //creating a new thread to service this request
                 {
                     perror("pthread create failed");
                     return 1;

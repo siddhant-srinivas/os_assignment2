@@ -63,8 +63,9 @@ int main(int argc, char* argv[]){
                break;
                
             case 3:
+            case 4:
             buf2.mesg_type = buf.mesg_cont.sequence_num%2==0 ?  MSG_TYPE_SECONDARY : MSG_TYPE_SECONDARY + 2;
-            buf2.mesg_cont.operation_num = 3;
+            buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
             buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
             strcpy(buf2.mesg_cont.mesg_text,buf.mesg_cont.mesg_text);
                 if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
@@ -84,13 +85,14 @@ int main(int argc, char* argv[]){
 				}
 				buf2.mesg_type = MSG_TYPE_SECONDARY;
 				buf2.mesg_cont.operation_num = 10;
-				buf2.mesg_cont.sequence_num = -1;
+				buf2.mesg_cont.sequence_num = -2;
 				strcpy(buf2.mesg_cont.mesg_text, cont);
 				if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
 					perror("msgsnd");
 					exit(1);
 				}
                 buf2.mesg_type = MSG_TYPE_SECONDARY + 2;
+                buf2.mesg_cont.sequence_num = -1;
 				if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
 					perror("msgsnd");
 					exit(1);
