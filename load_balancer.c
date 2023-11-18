@@ -45,7 +45,7 @@ int main(int argc, char* argv[]){
             perror("msgrcv");
             exit(1);
         }
-        printf("Received Message from: %ld\n",buf.mesg_type);
+        //printf("Received Message from: %ld\n",buf.mesg_type);
         printf("Sequence Number: %ld\n",buf.mesg_cont.sequence_num);
         printf("Contents: %s\n", buf.mesg_cont.mesg_text);
         switch(buf.mesg_cont.operation_num){
@@ -68,6 +68,36 @@ int main(int argc, char* argv[]){
                         exit(1);
                 }
                break;
+            case 10:
+				buf2.mesg_type = MSG_TYPE_PRIMARY;
+				buf2.mesg_cont.operation_num = 10;
+				buf2.mesg_cont.sequence_num = -1;
+                char cont[] = "Terminate";
+				strcpy(buf2.mesg_cont.mesg_text, cont);
+				if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+					perror("msgsnd");
+					exit(1);
+				}
+				buf2.mesg_type = MSG_TYPE_SECONDARY;
+				buf2.mesg_cont.operation_num = 10;
+				buf2.mesg_cont.sequence_num = -1;
+				strcpy(buf2.mesg_cont.mesg_text, cont);
+				if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+					perror("msgsnd");
+					exit(1);
+				}
+				if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+					perror("msgsnd");
+					exit(1);
+				}
+				sleep(5);
+				if(msgctl(msgid, IPC_RMID, NULL) == -1){
+					perror("Could not close message queue");
+					exit(1);
+				}
+				printf("Load Balancer Terminated\n");
+				exit(0);
+				break;
             	
         }
 

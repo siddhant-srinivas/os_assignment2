@@ -11,7 +11,8 @@
 #include <pthread.h>
 
 #define SHM_KEY 0x1234
-#define PERMS 0644  
+#define PERMS 0644 
+#define MSG_TYPE 5 
 
 struct mesg_content{
 	long sequence_num;
@@ -187,7 +188,7 @@ int main(int argc,char const *argv[])
             perror("msgrcv");
             exit(1);
         }
- printf("Received Message from: %ld\n",buf.mesg_type);
+ //printf("Received Message from: %ld\n",buf.mesg_type);
         printf("Sequence Number: %ld\n",buf.mesg_cont.sequence_num);
         printf("Contents: %s\n", buf.mesg_cont.mesg_text);
         switch(buf.mesg_cont.operation_num)
@@ -204,7 +205,10 @@ int main(int argc,char const *argv[])
                 
                 char dfs_rd_done[] = "DFS reading done";
                 strcpy(buf2.mesg_cont.mesg_text, dfs_rd_done);
-                if(msgsnd(msgid,&buf2.mesg_cont.mesg_text,strlen(buf2.mesg_cont.mesg_text)+1,0)==-1)
+                 buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
+    		buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
+	    	buf2.mesg_type = MSG_TYPE;
+                if(msgsnd(msgid,&buf2,sizeof(buf2),0)==-1)
                 {
                         perror("msgsnd");
                         exit(1);
@@ -219,6 +223,9 @@ int main(int argc,char const *argv[])
             
             case 4:
                 break;
+            case 10:
+                printf("Secondary server %d terminated\n", server_num);
+                exit(0);
             default:
                 break;
         }  

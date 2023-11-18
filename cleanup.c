@@ -9,10 +9,17 @@
 #include <string.h>
 #define PERMS 0666
 
+struct mesg_content{
+	long sequence_num;
+    long operation_num;
+	char mesg_text[100];
+}; 
+typedef struct mesg_content mesg_content;
 struct mesg_buffer{
     long mesg_type;
-    char mesg_text[100];
+    mesg_content mesg_cont;
 };
+
 
 int main(){
 	key_t key;
@@ -33,14 +40,16 @@ int main(){
 		while(getchar() != '\n');		//Clearing i/p buffer
 
 		if((c == 'Y') || (c == 'y')){
-			struct mesg_buffer buf;
-			buf.mesg_type = 10;
-			strcpy(buf.mesg_text, "Termination request");
-
-			if(msgsnd(msgid, &buf, strlen(buf.mesg_text) + 1, 0) == -1){
-				perror("msgsnd failed");
-				exit(1);
-			}
+			char cont[] = "Terminate";
+			 struct mesg_buffer buf2;
+                buf2.mesg_type = 10;
+                buf2.mesg_cont.operation_num =10;
+                buf2.mesg_cont.sequence_num = -1;
+                strcpy(buf2.mesg_cont.mesg_text, cont);
+                if(msgsnd(msgid,&buf2,sizeof(buf2.mesg_cont),0)==-1){
+                        perror("msgsnd");
+                        exit(1);
+                }
 			
 			printf("Termination Request sent to Load Balancer. Cleanup Process terminating...\n");
 			break;
