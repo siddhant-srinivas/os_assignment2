@@ -109,6 +109,7 @@ int main(int argc,char const *argv[]){
 		            perror("SHM error");
 		            return 1;
 		        }
+				printf("Shared memory key: %d, shared memory id: %d\n",shm_key,shmid);
 		        shmptr = (int *)shmat(shmid, NULL, 0);
 		        if(shmptr == (int*)-1){
 		            perror("SHMPTR ERROR");
@@ -150,8 +151,8 @@ int main(int argc,char const *argv[]){
 		        printf("%s", read_prompt);
 		        scanf("%d", &starting_vertex);
 		        
-		        
-		        if((shm_key=ftok("client.c",'E'))== -1){
+		        char key_letter = sequence_num%2==0 ? 'E' : 'F';
+		        if((shm_key=ftok("client.c",key_letter))== -1){
 		            perror("ftok failed");
 		            exit(1);
 		        }
@@ -167,7 +168,6 @@ int main(int argc,char const *argv[]){
 		            return 1;
 		        }
 		        *shmptr = starting_vertex;
-		        
 		        if(shmdt(shmptr) == -1){
 		            perror("shmdt failed");
 		            return 1;
@@ -180,6 +180,7 @@ int main(int argc,char const *argv[]){
 		            perror("msgrcv error");
 		            exit(1);
 		        }
+	
 		        printf("%s", buf2.mesg_cont.mesg_text);
 		        if(shmctl(shmid,IPC_RMID,0)==-1){
 		            perror("shmctl failed");

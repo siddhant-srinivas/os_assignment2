@@ -67,6 +67,7 @@ void* add_or_modify_graph(void *arg){
         perror("SHM error");
         return NULL;
     }
+    printf("Shared memory key: %d, shared memory id: %d\n",shm_key,shmid);
     int *shmptr = (int *)shmat(shmid, NULL, 0);
     if(shmptr == (int*)-1){
         perror("SHMPTR ERROR");
