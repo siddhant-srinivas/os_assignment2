@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define SHM_KEY 0x1234
 #define PERMS 0644  
@@ -31,7 +34,13 @@ struct thread_arg{
     struct mesg_buffer buf;
 };
 void* add_or_modify_graph(void *arg){
+    printf("Reached here\n");
     key_t shm_key;
+    sem_t *sem;
+    if((sem = sem_open("write_protect",0))==SEM_FAILED){
+        perror("sem open error");
+        exit(1);
+    }
     struct mesg_buffer buf = (*(struct thread_arg*)arg).buf;
     int msgid = (*(struct thread_arg*)arg).msgid;
     char* graph_fn = buf.mesg_cont.mesg_text;
@@ -40,6 +49,12 @@ void* add_or_modify_graph(void *arg){
 
     }
     char graph_fn[100]; */
+    int sem_value;
+    if(sem_getvalue(sem,&sem_value)==-1){
+        perror("sem_getvalue");
+    }
+    if(sem_value<1) printf("Critical Section currently busy. Please wait...\n");
+    sem_wait(sem);
 
     if((shm_key=ftok("client.c",'D'))== -1){
         perror("ftok failed");
@@ -94,6 +109,7 @@ void* add_or_modify_graph(void *arg){
     }
     char graph_addn[] = "File successfully added";
     char graph_modif[] = "File successfully modified";
+    sem_post(sem);
     buf2.mesg_type = MSG_TYPE;
     buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
     buf2.mesg_cont.operation_num = buf.mesg_cont.operation_num;
@@ -102,17 +118,24 @@ void* add_or_modify_graph(void *arg){
             perror("msgsnd error here");
             exit(1);
     }
+
 }
 
 int main(int argc,char const *argv[]){
     struct mesg_buffer buf;
-
+    sem_t *sem;
     pthread_t tid;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     key_t msg_key;
     int msgid;
-    
+    sem_unlink("write_protect");
+    if((sem = sem_open("write_protect",O_CREAT | O_EXCL,PERMS, 1))==SEM_FAILED){
+        perror("sem_open");
+        exit(1);
+    }
+   
+    printf("Named Semaphore Initialized\n");
     if((msg_key=ftok("load_balancer.c",'B'))==-1){
         perror("ftok");
         exit(1);
@@ -148,6 +171,11 @@ int main(int argc,char const *argv[]){
                     return 1;
                 }
                 
+                break;
+                case 10:
+                    printf("Primary server terminated\n");
+                    exit(0);
+                default:
                 break;
         }  
     }  
