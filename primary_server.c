@@ -34,16 +34,25 @@ struct thread_arg{
     struct mesg_buffer buf;
 };
 void* add_or_modify_graph(void *arg){
-    printf("Reached here\n");
     key_t shm_key;
     sem_t *sem;
-    if((sem = sem_open("write_protect",0))==SEM_FAILED){
-        perror("sem open error");
-        exit(1);
-    }
+    sem_t *sem_mutex;        
     struct mesg_buffer buf = (*(struct thread_arg*)arg).buf;
     int msgid = (*(struct thread_arg*)arg).msgid;
     char* graph_fn = buf.mesg_cont.mesg_text;
+
+    if((sem = sem_open("sem_write",0))==SEM_FAILED){
+        perror("sem open error");
+        exit(1);
+    }
+    char sem_root_mutex[20];
+        strcpy(sem_root_mutex,buf.mesg_cont.mesg_text);
+        strcat(sem_root_mutex,"_mutex");
+
+    if((sem_mutex = sem_open("sem_mutex",0))==SEM_FAILED){
+        perror("sem open error");
+        exit(1);
+}     
     struct mesg_buffer buf2;
     /*for(int i = 0; i < 100; i++){
 
@@ -53,10 +62,11 @@ void* add_or_modify_graph(void *arg){
     if(sem_getvalue(sem,&sem_value)==-1){
         perror("sem_getvalue");
     }
+    printf("%d\n",sem_value);
     if(sem_value<1) printf("Critical Section currently busy. Please wait...\n");
     sem_wait(sem);
-
-    if((shm_key=ftok("client.c",'D'))== -1){
+    sem_wait(sem_mutex);
+    if((shm_key=ftok("client.c",'D' + buf.mesg_cont.sequence_num))== -1){
         perror("ftok failed");
         exit(1);
     }
@@ -110,6 +120,7 @@ void* add_or_modify_graph(void *arg){
     }
     char graph_addn[] = "File successfully added";
     char graph_modif[] = "File successfully modified";
+    sem_post(sem_mutex);
     sem_post(sem);
     buf2.mesg_type = MSG_TYPE;
     buf2.mesg_cont.sequence_num = buf.mesg_cont.sequence_num;
@@ -124,19 +135,13 @@ void* add_or_modify_graph(void *arg){
 
 int main(int argc,char const *argv[]){
     struct mesg_buffer buf;
-    sem_t *sem;
     pthread_t tid;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     key_t msg_key;
     int msgid;
-    sem_unlink("write_protect");
-    if((sem = sem_open("write_protect",O_CREAT | O_EXCL,PERMS, 1))==SEM_FAILED){
-        perror("sem_open");
-        exit(1);
-    }
+  
    
-    printf("Named Semaphore Initialized\n");
     if((msg_key=ftok("load_balancer.c",'B'))==-1){
         perror("ftok");
         exit(1);
@@ -146,8 +151,21 @@ int main(int argc,char const *argv[]){
         exit(1);
     }
     printf("Primary Server Running! Established connection to Message Queue!\n");
+       sem_t *sem_write;
+            sem_t *sem_mutex;
+
+				 sem_unlink("sem_write");
+				if((sem_write = sem_open("sem_write",O_CREAT | O_EXCL,PERMS, 1))==SEM_FAILED){
+					perror("sem_open");
+					exit(1);
+				}
+                sem_unlink("sem_mutex");
+            if((sem_mutex = sem_open("sem_mutex",O_CREAT | O_EXCL, PERMS, 1))==SEM_FAILED){
+                perror("sem open error");
+                exit(1);
+            }
+             printf("Named Semaphores Initialized\n");
     while(1){
-        printf("New iter\n");
         if(msgrcv(msgid,&buf,sizeof(buf.mesg_cont),3,0)==-1){
             printf("%s", buf.mesg_cont.mesg_text);
             perror("msgrcv");
@@ -157,6 +175,9 @@ int main(int argc,char const *argv[]){
         switch(buf.mesg_cont.operation_num){
             case 1:
             case 2:
+         
+     
+   
                 struct thread_arg arg;
                 arg.msgid = msgid;
                 arg.buf = buf;

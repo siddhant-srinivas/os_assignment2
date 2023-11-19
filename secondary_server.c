@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define SHM_KEY 0x1234
 #define PERMS 0644 
@@ -127,7 +130,8 @@ void startBFS(struct bfsStruct* bfsReqs)
 }
 void* bfsStartRoutine(void *arg)
 {
-
+    sem_t *sem_read;
+    sem_t *sem_mutex;
     struct bfsStruct bfsReqs;
    struct mesg_buffer buf2;
     key_t shm_key;
@@ -135,8 +139,14 @@ void* bfsStartRoutine(void *arg)
     char graph_fn[20];
     int msgid = threadArgs.msgid;
     strcpy(graph_fn,threadArgs.graph_fn);
+
+     if((sem_mutex = sem_open("sem_mutex",0))==SEM_FAILED){
+        perror("sem open error");
+        exit(1);
+    }           
+       
     int server_num = threadArgs.server_num;
-    char key_letter = server_num%2==0 ? 'E' : 'F';
+    char key_letter = server_num%2==0 ? 'E' + threadArgs.server_num : 'F' + threadArgs.server_num;
     if((shm_key=ftok("client.c",key_letter))== -1)
     {
         perror("ftok failed");
@@ -145,7 +155,9 @@ void* bfsStartRoutine(void *arg)
 
     int shmid;
     int BUF_SIZE = sizeof(int) * 900;
+  
     shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
+
     if(shmid == -1)
     {
         perror("SHM error");
@@ -161,7 +173,8 @@ void* bfsStartRoutine(void *arg)
     bfsReqs.starting_vertex = *shmptr;
   
     bfsReqs.starting_vertex--;
-    
+    sem_wait(sem_mutex);
+
     FILE* file = fopen(graph_fn, "r");
     if (file == NULL)
     {
@@ -190,6 +203,7 @@ void* bfsStartRoutine(void *arg)
     }
     
     fclose(file);
+    sem_post(sem_mutex);
     //at this stage, we have the first 3 elements of dfsReqs
     //now we will do dfs
 
@@ -227,7 +241,7 @@ void* bfsStartRoutine(void *arg)
 int dfs_nodes[30];
 int buffer = 0;
 void* dfs(void* args)
-{  
+{   
     struct dfsStruct* dfsReqs = (struct dfsStruct*)args;
     int currentNode = dfsReqs->starting_vertex; //-1 becasue array indexing starts from 0
     pthread_mutex_lock(&dfsReqs->mutex);   //locking mutex (visited array is the critical section)
@@ -301,7 +315,8 @@ void startDFS(struct dfsStruct* dfsReqs)
 
 void* dfsStartRoutine(void *arg)
 {
-
+    sem_t *sem_read;
+    sem_t *sem_mutex;
     struct dfsStruct dfsReqs;
    struct mesg_buffer buf2;
     key_t shm_key;
@@ -313,7 +328,11 @@ void* dfsStartRoutine(void *arg)
     int msgid = threadArgs.msgid;
     strcpy(graph_fn,threadArgs.graph_fn);
     int server_num = threadArgs.server_num;
-    char key_letter = server_num%2==0 ? 'E' : 'F';
+        if((sem_mutex = sem_open("sem_mutex",0))==SEM_FAILED){
+        perror("sem open error");
+        exit(1);
+    }           
+    char key_letter = server_num%2==0 ? 'E' + server_num : 'F' + server_num;
     if((shm_key=ftok("client.c",key_letter))== -1)
     {
         perror("ftok failed");
@@ -338,7 +357,7 @@ void* dfsStartRoutine(void *arg)
     dfsReqs.starting_vertex = *shmptr;
   
     dfsReqs.starting_vertex--;
-    
+       sem_wait(sem_mutex);
     FILE* file = fopen(graph_fn, "r");
     if (file == NULL)
     {
@@ -364,6 +383,7 @@ void* dfsStartRoutine(void *arg)
     }
     
     fclose(file);
+       sem_post(sem_mutex);
     //at this stage, we have the first 3 elements of dfsReqs
     //now we will do dfs
    
@@ -407,10 +427,12 @@ int main(int argc,char const *argv[])
     if(server_num%2 ==0) server_num +=2;
     printf("Secondary Server %d Running! Established Communication with the Message Queue\n",server_num);
     struct mesg_buffer buf;
-    
+
     key_t key;
     int msgid;
     int listen_no = server_num%2==0 ? 4 : 6;
+   
+    printf("Named Semaphores initalized\n");
     if((key=ftok("load_balancer.c",'B'))==-1)
     {
         perror("ftok failed");
