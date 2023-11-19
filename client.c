@@ -76,10 +76,11 @@ int main(int argc,char const *argv[]){
         switch(operation_num){
             case 1:
             case 2:	
-			
+			sem_t *sem_write;
 			buf.mesg_cont.operation_num = operation_num;
 			buf.mesg_cont.sequence_num = sequence_num;
 		        strcpy(buf.mesg_cont.mesg_text, graph_fn);
+				
 		        printf("Enter the number of nodes of the graph: ");
 		        scanf("%d", &nodes);
 				printf("Enter adjacency matrix, each row on  a seperate line and elements of a single separated by whitespace character:\n");
@@ -103,7 +104,7 @@ int main(int argc,char const *argv[]){
 		        }
 			
 		        //Creating shared memory segment
-		        if((shm_key=ftok("client.c",'D'))== -1){
+		        if((shm_key=ftok("client.c",'D'+buf.mesg_cont.sequence_num))== -1){
 		            perror("ftok failed");
 		            exit(1);
 		        }
@@ -113,6 +114,7 @@ int main(int argc,char const *argv[]){
 		            perror("SHM error");
 		            return 1;
 		        }
+				printf("Shared Memory ID: %d\n",shmid);
 		        shmptr = (int *)shmat(shmid, NULL, 0);
 		        if(shmptr == (int*)-1){
 		            perror("SHMPTR ERROR");
@@ -157,7 +159,7 @@ int main(int argc,char const *argv[]){
 		        printf("%s", read_prompt);
 		        scanf("%d", &starting_vertex);
 		        
-		        char key_letter = sequence_num%2==0 ? 'E' : 'F';
+		        char key_letter = sequence_num%2==0 ? 'E' + buf.mesg_cont.sequence_num : 'F' + buf.mesg_cont.sequence_num;
 				
 		        if((shm_key=ftok("client.c",key_letter))== -1){
 		            perror("ftok failed");
@@ -165,6 +167,7 @@ int main(int argc,char const *argv[]){
 		        }
 		        
 		        shmid = shmget(shm_key,BUF_SIZE,PERMS|IPC_CREAT);
+		
 		        if(shmid == -1){
 		            perror("SHM error");
 		            return 1;
